@@ -5,7 +5,10 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - ./notebooks:/home/jovyan/work
+      - "/home/radimt/projects/case_study:/app"
+    environment:
+      - WORKDIR=/app
+    working_dir: /app
     restart: unless-stopped
 
   postgres:
@@ -17,5 +20,11 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./pgdata:/var/lib/postgresql/data
+      - "./pgdata:/var/lib/postgresql/data"
+    restart: unless-stopped
+
+  dbeaver:
+    image: dmitryrck/dbeaver
+    ports:
+      - "5433:5432"  # Change the port if required
     restart: unless-stopped
