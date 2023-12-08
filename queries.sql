@@ -128,10 +128,12 @@ CREATE TABLE movements AS
 	UNION
 	SELECT *
 	FROM expenses_wip;
-	
+
+/*
 SELECT *
 FROM movements
 ORDER BY total DESC;
+*/
 
 /* COPY (SELECT * FROM movements ORDER BY total DESC) TO 'path' WITH CSV HEADER; this would be server-side copy for cloud etc. applications, 
 but for my purpose of outputting this to my local machine, it's better to use the client-side psql command */
@@ -139,6 +141,7 @@ but for my purpose of outputting this to my local machine, it's better to use th
 /*
 the client-side command:
 
-\copy (SELECT * FROM movements ORDER BY total DESC) TO '/home/radimt/projects/case_study/movements.csv' WITH CSV HEADER;
+\copy (SELECT * FROM movements ORDER BY total DESC) TO '/app/movements.csv' WITH CSV HEADER; this should output the movements.csv file
+to the ~/projects/casestudy_1/ folder as it is mapped to the container's /app (as per the .yml setup)
 
 */

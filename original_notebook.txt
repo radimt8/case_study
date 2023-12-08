@@ -1,0 +1,102 @@
+original notebook:
+
+!pip install psycopg2-binary
+
+import csv
+import requests
+import psycopg2
+import base64
+import json
+
+# Fakturoid API credentials and parameters
+FAKTUROID_API_BASE_URL = 'https://app.fakturoid.cz/api/v2/accounts'
+FAKTUROID_SLUG = 'datadrivenmarketingdev'
+FAKTUROID_USERNAME = 'jan.kadlecek+dev@marketing.bi'
+FAKTUROID_API_KEY = '31f47e8632bd4b8e77f3dc7b19c7e2c945c3108b'
+
+file_name = 'expenses'
+
+# Form the complete URL with the slug
+FAKTUROID_API_URL = f'{FAKTUROID_API_BASE_URL}/{FAKTUROID_SLUG}/{file_name}.json'
+
+credentials = f"{FAKTUROID_USERNAME}:{FAKTUROID_API_KEY}"
+credentials_encoded = base64.b64encode(credentials.encode()).decode('utf-8')
+headers = {
+    'Content-Type': 'application/json',
+    'Authorization': f'Basic {credentials_encoded}'
+}
+
+# Fetch invoices from Fakturoid API with slug parameter
+response = requests.get(FAKTUROID_API_URL, headers=headers)
+response.raise_for_status()
+
+# TO DO - check for presence of Link in the response.headers, which indicates pagination.
+# print(response.headers)
+
+data = response.json()
+
+# PostgreSQL connection parameters
+PG_PARAMS = {
+    "dbname": "mydatabase",
+    "user": "myuser",
+    "password": "mypassword",
+    "host": "postgres",
+    "port": "5432"
+}
+
+#csv_file = 'invoices.csv'
+
+# Write data to CSV file with quoting and escape character
+with open(csv_file, mode='w', newline='', encoding='utf-8') as file:
+    csv_writer = csv.writer(file, quoting=csv.QUOTE_ALL, escapechar='\\')
+    headers = list(invoices[0].keys())  # Update headers
+    csv_writer.writerow(headers)  # Write headers to the CSV file
+    for invoice in invoices:
+        # Extract values from the invoice dictionary based on the headers order
+        data_row = [invoice[header] for header in headers]
+        csv_writer.writerow(data_row)  # Write values to the CSV file
+
+query = """
+    SELECT column_name, data_type
+    FROM information_schema.columns
+    WHERE table_name = 'invoices';"""
+
+# Connect to PostgreSQL
+with psycopg2.connect(**PG_PARAMS) as conn:
+    with conn.cursor() as cur:
+        # Create table dynamically based on JSON keys
+        table_creation_query = f"CREATE TABLE IF NOT EXISTS invoices ("
+        for idx, header in enumerate(headers):
+            # Define column names and types based on JSON keys
+            value = invoices[0][header]
+            if isinstance(value, (dict, list)): #TO DO: 
+                column_type = "JSONB"  # Using JSONB for JSON-like structures
+            #elif "id" in header and isinstance(value, int):
+            #    column_type = "INTEGER"
+            #elif isinstance(value, int) or str(value).isdigit():
+            #    column_type = "REAL"  # Assuming other columns as VARCHAR for simplicity
+            else:
+                column_type = "VARCHAR(255)"  # Assuming other columns as VARCHAR for simplicity
+            if idx != 0:
+                table_creation_query += ", "
+            table_creation_query += f"{header} {column_type}"
+        table_creation_query += ");"
+
+        cur.execute(table_creation_query)
+        cur.execute(query)
+        table_structure = cur.fetchall()
+
+        print("Table Structure:")
+        for column in table_structure:
+            print(column)
+
+# Connect to PostgreSQL
+with psycopg2.connect(**PG_PARAMS) as conn:
+    with conn.cursor() as cur:
+        # Load data into PostgreSQL from CSV
+        with open(csv_file, 'r', encoding='utf-8') as f:
+            # Skip the header row in the CSV file
+            next(f)
+            cur.copy_from(f, 'invoices', sep=',', columns=headers, null='None')
+            conn.commit()
+
