@@ -2,6 +2,7 @@ version: '3'
 services:
   jupyter:
     image: jupyter/datascience-notebook
+    container_name: jupyter
     ports:
       - "8888:8888"
     volumes:
@@ -12,7 +13,9 @@ services:
     restart: unless-stopped
 
   postgres:
-    image: postgres
+    image: postgres:alpine
+    container_name: postgres
+    hostname: postgres
     environment:
       POSTGRES_DB: mydatabase
       POSTGRES_USER: myuser
@@ -26,6 +29,27 @@ services:
 
   dbeaver:
     image: dmitryrck/dbeaver
+    container_name: dbeaver
     ports:
       - "5433:5432"  # Change the port if required
     restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    hostname: metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: mydatabase
+      MB_DB_PORT: 5432
+      MB_DB_USER: myuser
+      MB_DB_PASS: mypassword
+      MB_DB_HOST: postgres
+    depends_on:
+      - postgres
+    restart: unless-stopped
+      # Add other necessary environment variables
+    volumes:
+      - "/home/radimt/projects/casestudy_1/metabase_output:/app/metabase_output"  # Folder for Metabase output
