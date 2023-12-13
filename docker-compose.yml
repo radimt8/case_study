@@ -6,7 +6,7 @@ services:
     ports:
       - "8888:8888"
     volumes:
-      - "/home/radimt/projects/casestudy_1:/app"
+      - "/path/to/your/folder:/app"
     environment:
       - WORKDIR=/app
     working_dir: /app
@@ -24,7 +24,7 @@ services:
       - "5432:5432"
     volumes:
       - "./pgdata:/var/lib/postgresql/data"
-      - "/home/radimt/projects/casestudy_1:/app"
+      - "/path/to/your/folder:/app"
     restart: unless-stopped
 
   dbeaver:
@@ -52,4 +52,4 @@ services:
     restart: unless-stopped
       # Add other necessary environment variables
     volumes:
-      - "/home/radimt/projects/casestudy_1/metabase_output:/app/metabase_output"  # Folder for Metabase output
+      - "/path/to/your/folder:/app"  # Folder for Metabase output

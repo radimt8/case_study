@@ -1,0 +1,48 @@
+Dokumentace:
+
+	Komentář:
+
+		Po úvodním zamyšlení a vyzkoušení navrhovaných nástrojů (Postman apod.) jsem se rozhodl jít jinou cestou. Využil jsem dockerizace, kontejnerů jupyter notebooku, postgres, dbeaver (open source SQL IDE) a metabase. Výhodou tohoto řešení je, že by mělo fungovat všude a každému, a že jsem se u něj něco naučil. Nechal jsem ChatGPT předpřipravit skript v Pythonu, díky kterému se dokážu připojit na Fakturoid API, zautomatizovat stahování faktur, kontrolu paginace, parsování JSONu na CSV a výsledné nahrání vstupních datasetů do Postgres díky Python knihovnám requests, base64, pandas a sqlalchemy. Následuje SQL část, která se asi neliší od očekávání, a nakonec reporty v Metabase, kde business questions mohu napsat jako SQL queries, což je pro mě výhodné. Bylo v plánu nakonec udělat report i v Google Data Studiu, bohužel jsem mezitím onemocněl a nevyšel mi na to čas. Nevýhoda Metabase - mimo Enterprise verzi nelze sdílet report jako definici, jedině jako PDF, což jsem udělal, ale vím, že to není ideální.
+
+	Použití:
+
+		Moje řešení si můžete sami vyzkoušet podle následujícího postupu:
+
+		Příprava:
+
+			1) nainstalujte docker a docker-compose
+			2) naklonujte si můj Github repozitář
+			3) ve složce, kam jste repo naklonovali, naleznete soubor docker-compose.yml
+			4) v tomto souboru změňte v adrese "/path/to/your/folder:/app" část před dvojtečkou na cestu do vašeho naklonovaného repozitáře (u všech services). Tato část docker-compose.yml slouží k mapování složky na vašem zařízení na interní docker container adresu (/app)
+			5) otevřte terminál, navigujte do repozitáře a příkazem "docker-compose up" vše spustíte. Docker by se měl postarat o stažení všeho potřebného.
+
+		Jupyter:
+
+			6) v terminálu posléze uvidíte odkaz na spuštění Jupyteru, po kliknutí by se měl otevřít ve webovém prohlížeči a měli byste vidět soubory ve složce k otevření.
+			7) otevřte casestudy1.ipynb
+
+				- toto je můj notebook - na začátku import knihoven, definice proměnných pro přístup na Fakturoid API, encoding credentials, definice funkce, která ověří paginaci a zároveň appenduje data. Posléze data nahraju jako Pandas dataframe, který mohu pohodlně outputnout jako CSV, a zároveň jej mohu díky SQLalchemy nahrát přímo do své Postgres databáze, k čemuž na tomto místě zadávám parametry přístupu k databázi. Důležitá poznámka: bylo v plánu udělat to ještě trochu automatičtější, ale prozatím nutno měnit proměnnou _file_name_ na "invoices" nebo "expenses", proběhnout celý skript jednou pro každý z názvů.
+
+		Postgres:
+
+			8) Pokud Příprava proběhla bez problémů, Postgres container běží a tedy mělo by být snadné připojit se na Postgres databázi "mydatabase" na portu 5432 s uživatelem "myuser" a heslem "mypassword".
+			9) po úspěšném připojení ve vašem SQL IDE, otevřte soubor queries.sql - zde jsou všechny moje SQL.
+
+				- Tabulky invoices_raw a expenses_raw jsou vytvořeny outputem z Pandasu. Tabulky invoices_wip (work in progress) a expenses_wip jsou vytvářeny již poté, co jsem promyslel, jaká pole budou a nebudou potřeba a kdy je možné je případně zahodit a kdy ještě ne.
+			10) vytvoření tabulky Movements a následný export CSV. Zde jsem narazil na lehký problém mého přístupu - nemohl jsem provést normální COPY TO command, protože server-side Postgres nemá ověření. Proto jsem musel provést client-side \copy command z konzole PSQL, což efektivně znamená zalogovat se do postgres containeru pomocí "docker exec -it postgres bash" a vzápětí do PSQL konzole příkazem "psql -U myuser -d mydatabase". Zde příkazem "\copy (SELECT * FROM movements ORDER BY total DESC) TO '/app/movements.csv' (FORMAT CSV, HEADER, FORCE_QUOTE *);" dosáhneme exportu CSV do našeho mounted folderu (včetně hlavičky a quotes). Pokud CSV nepotřebuji, nemusím toto dělat, Metabase mám propojenou s Postgresem, takže vidí přímo tabulku Movements a dokáže s ní rovnou pracovat.
+
+		BI - Metabase:
+
+			11) kliknutím na tlačítko "New" a výběrem SQL query se dostaneme do SQL editoru, kde mohu svoji business question definovat pomocí SQL query, posléze si mohu vybrat vizualizaci dle libosti a nakonec mohu umístit na report, který buduji.
+
+				Příklad:
+
+					- Top 10 největších zaplacených nákladů za rok 2021:
+
+						select distinct lines_name, sum(total)
+						from movements
+						where total <= 0 and date_part('year', issued_on) = 2021
+						group by 1
+						order by 2
+						limit 10;
+
